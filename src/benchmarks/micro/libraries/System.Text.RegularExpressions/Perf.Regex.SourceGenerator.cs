@@ -4,6 +4,7 @@
 
 using BenchmarkDotNet.Attributes;
 using MicroBenchmarks;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
@@ -21,16 +22,16 @@ namespace System.Text.RegularExpressions.Tests
         [Params(BenchmarkType.UsesGenerator, BenchmarkType.DoesNotUseGenerator)]
         public BenchmarkType TestType { get; set; }
 
-        private string _code;
+        private List<(string, string)> _sourceFiles;
 
-        private const string UsesGeneratorCodeTemplate = @"
+        private const string UsesGeneratorCodeTemplate = @"using System.Text.RegularExpressions;
 public partial class Class#i#
 {
     [RegexGenerator(""(a|b)#i#"", RegexOptions.IgnoreCase)]
     private static partial Regex MyRegex();
 }";
 
-        private const string DoesNotUseGeneratorCodeTemplate = @"
+        private const string DoesNotUseGeneratorCodeTemplate = @"using System.Text.RegularExpressions;
 public partial class Class#i#
 {
     [MyCustom(""(a|b)#i#"", RegexOptions.IgnoreCase)]
@@ -40,35 +41,35 @@ public partial class Class#i#
         [GlobalSetup]
         public void Setup()
         {
+            _sourceFiles = new List<(string, string)>();
+
             if (TestType == BenchmarkType.UsesGenerator)
             {
-                StringBuilder sb = new StringBuilder("using System.Text.RegularExpressions;");
                 for (int i = 0; i < 100; i++)
                 {
-                    sb.Append(UsesGeneratorCodeTemplate.Replace("#i#", i.ToString()));
+                    _sourceFiles.Add((UsesGeneratorCodeTemplate.Replace("#i#", i.ToString()), $"Class{i}.g.cs"));
                 }
-                _code = sb.ToString();
             }
             else
             {
-                StringBuilder sb = new StringBuilder(@"using System.Text.RegularExpressions;
+                _sourceFiles.Add((@"using System.Text.RegularExpressions;
 using System;
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class MyCustomAttribute : Attribute
 {
     public MyCustomAttribute(string pattern, RegexOptions options)
     { }
-}");
+}", $"MyCustomAttribute.cs"));
+
                 for (int i = 0; i < 100; i++)
                 {
-                    sb.Append(DoesNotUseGeneratorCodeTemplate.Replace("#i#", i.ToString()));
+                    _sourceFiles.Add((DoesNotUseGeneratorCodeTemplate.Replace("#i#", i.ToString()), $"Class{i}.g.cs"));
                 }
-                _code = sb.ToString();
             }
         }
 
         [Benchmark]
         public async Task RunRegexGenerator()
-            => await SourceGeneratorRunner.RunGenerator(_code, SourceGeneratorType.Regex);
+            => await SourceGeneratorRunner.RunGenerator(_sourceFiles, SourceGeneratorType.Regex);
     }
 }

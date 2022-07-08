@@ -37,8 +37,12 @@ namespace System
                 };
         }
 
-        internal static async Task<IReadOnlyList<Diagnostic>> RunGenerator(
+        internal static Task<IReadOnlyList<Diagnostic>> RunGenerator(
                     string code, SourceGeneratorType sourceGeneratorType, bool compile = true, LanguageVersion langVersion = LanguageVersion.Preview, MetadataReference[] additionalRefs = null, bool allowUnsafe = false, CancellationToken cancellationToken = default)
+            => RunGenerator(new[] { (code, "file.g.cs") }, sourceGeneratorType, compile, langVersion, additionalRefs, allowUnsafe, cancellationToken);
+
+        internal static async Task<IReadOnlyList<Diagnostic>> RunGenerator(
+                    IEnumerable<(string code, string fileName)> sourceFiles, SourceGeneratorType sourceGeneratorType, bool compile = true, LanguageVersion langVersion = LanguageVersion.Preview, MetadataReference[] additionalRefs = null, bool allowUnsafe = false, CancellationToken cancellationToken = default)
         {
             var proj = new AdhocWorkspace()
                 .AddSolution(SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Create()))
@@ -46,8 +50,12 @@ namespace System
                 .WithMetadataReferences(additionalRefs != null ? References.Concat(additionalRefs) : References)
                 .WithCompilationOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: allowUnsafe)
                 .WithNullableContextOptions(NullableContextOptions.Enable))
-                .WithParseOptions(new CSharpParseOptions(langVersion))
-                .AddDocument("RegexGenerator.g.cs", SourceText.From(code, Encoding.UTF8)).Project;
+                .WithParseOptions(new CSharpParseOptions(langVersion));
+
+            foreach((string code, string filename) in sourceFiles)
+            {
+                proj = proj.AddDocument(filename, SourceText.From(code, Encoding.UTF8)).Project;
+            }
 
             proj.Solution.Workspace.TryApplyChanges(proj.Solution);
 
