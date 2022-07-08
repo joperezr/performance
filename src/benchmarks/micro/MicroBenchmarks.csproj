@@ -44,6 +44,7 @@
     <PackageReference Include="Jil" Version="3.0.0-alpha2" />
     <PackageReference Include="MessagePack" Version="1.9.11" />
     <PackageReference Include="MessagePackAnalyzer" Version="1.7.3.7" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.3.0-1.22206.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="$(ExtensionsVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Xml" Version="$(ExtensionsVersion)" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="$(ExtensionsVersion)" />
@@ -56,7 +57,6 @@
     <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="$(SystemVersion)" />
     <PackageReference Include="System.Drawing.Common" Version="$(SystemVersion)" />
     <PackageReference Include="System.Formats.Cbor" Version="$(SystemVersion)" Condition="'$(TargetFramework)' == 'net5.0' or '$(TargetFramework)' == 'net6.0' or '$(TargetFramework)' == 'net7.0'" />
-    <PackageReference Include="System.IO.Pipelines" Version="$(SystemVersion)" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
     <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
     <PackageReference Include="System.Runtime.Serialization.Formatters" Version="4.3.0" />
@@ -151,6 +151,8 @@
 
   <ItemGroup Condition=" '$(TargetFrameworkIdentifier)' == '.NETFramework' Or ('$(TargetFrameworkIdentifier)' == '.NETCoreApp' And '$(_TargetFrameworkVersionWithoutV)' &lt; '7.0')">
     <Compile Remove="libraries\System.Formats.Tar\*.cs" />
+    <Compile Remove="libraries\System.Text.RegularExpressions\Perf.Regex.SourceGenerator.cs" />
+    <Compile Remove="libraries\Common\SourceGeneratorRunner.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
@@ -160,10 +162,20 @@
 
   <ItemGroup>
     <!-- Temporarily disable tests here -->
-	<!--Like <Compile Remove="libraries\System.Text.RegularExpressions\Perf.Regex.Industry.cs" /> -->
-	  
+  <!--Like <Compile Remove="libraries\System.Text.RegularExpressions\Perf.Regex.Industry.cs" /> -->
+    
     <!-- Workaround https://github.com/dotnet/project-system/issues/935 -->
     <None Include="**/*.cs" />
   </ItemGroup>
+
+  <Target Name="AddReferenceToRegexSourceGenerator"
+      AfterTargets="ResolveTargetingPackAssets"
+      Condition="'$(TargetFramework)' == 'net7.0'">
+    <ItemGroup>
+      <RegexGeneratorAnalyzerPath Include="@(Analyzer)" Condition="'%(Analyzer.FileName)' == 'System.Text.RegularExpressions.Generator'" />
+      <!-- <Reference Include="@(RegexGeneratorAnalyzerPath)" Condition="'@(RegexGeneratorAnalyzerPath)' != ''" /> -->
+      <Reference Include="@(RegexGeneratorAnalyzerPath)" Condition="'@(RegexGeneratorAnalyzerPath)' != ''" CopyLocal="true" Private="true" />
+    </ItemGroup>
+  </Target>
 
 </Project>
